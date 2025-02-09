@@ -1,13 +1,12 @@
 import TwitchBot from "./twitch_bot.js";
+import Requests from "./requests.js";
 
-function hello() {
-  return "hello";
-}
+const requests = new Requests();
 
 const commands = {
   "!today":
     "Refactoring Twitch-bot Code and Potentially adding Spotify Support",
-  "!song": hello(),
+  "!song": requests.request("spa/now_playing", "GET"),
 };
 
 const twitchBot = new TwitchBot(commands);
