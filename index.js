@@ -6,7 +6,7 @@ const requests = new Requests();
 const commands = {
   "!today":
     "Refactoring Twitch-bot Code and Potentially adding Spotify Support",
-  "!song": requests.request("spa/now_playing", "GET"),
+  "!song": await requests.song_request(),
 };
 
 const twitchBot = new TwitchBot(commands);
