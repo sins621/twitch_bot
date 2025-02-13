@@ -1,6 +1,9 @@
 //Referenced from https://dev.twitch.tv/docs/chat/chatbot-guide/
 import "dotenv/config";
 import WebSocket from "ws";
+import Requests from "./requests.js";
+
+const request_helper = new Requests();
 
 const BOT_USER_ID = "960074192";
 const OAUTH_TOKEN = process.env.access_token;
@@ -16,7 +19,6 @@ class TwitchBot {
 
   async run() {
     await this.getAuth();
-
     this.startWebSocketClient();
   }
 
@@ -52,7 +54,7 @@ class TwitchBot {
     return websocketClient;
   }
 
-  handleWebSocketMessage(data) {
+  async handleWebSocketMessage(data) {
     switch (data.metadata.message_type) {
       case "session_welcome":
         websocketSessionID = data.payload.session.id;
@@ -65,11 +67,36 @@ class TwitchBot {
               `MSG #${data.payload.event.broadcaster_user_login} <${data.payload.event.chatter_user_login}> ${data.payload.event.message.text}`,
             );
             let chat_message = data.payload.event.message.text.trim();
-            for (const command of Object.keys(this.commands)) {
-              if (chat_message.includes(command)) {
-                this.sendChatMessage(this.commands[command]);
+
+            if (Array.from(chat_message)[0] === "!") {
+              let chat_command = chat_message
+                .match(/^\s*(\S+)\s*(.*?)\s*$/)
+                .slice(1);
+              if (Array.from(chat_command[1]).length === 0) {
+                switch (chat_command[0]) {
+                  case "!song":
+                    this.sendChatMessage(await request_helper.now_playing());
+                    break;
+                  case "!skip":
+                    this.sendChatMessage(await request_helper.skip_song());
+                    break;
+                }
+              } else {
+                switch (chat_command[0]) {
+                  case "!songrequest":
+                    this.sendChatMessage(
+                      await request_helper.song_request(chat_command[1]),
+                    );
+                }
               }
             }
+
+            //for (const command of Object.keys(this.commands)) {
+            //  if (chat_message.includes(command)) {
+            //      this.sendChatMessage(this.commands[command]);
+            //  }
+            //}
+
             break;
         }
         break;
