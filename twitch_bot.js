@@ -25,6 +25,7 @@ class TwitchBot {
         Authorization: "OAuth " + OAUTH_TOKEN,
       },
     });
+    //git
     if (response.status != 200) {
       let data = await response.json();
       console.error(
