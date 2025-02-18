@@ -33,7 +33,7 @@ class Requests {
   async song_request(query) {
     console.log(query);
     const req = await this.async_http_request(
-      `${my_api_addr}spa/search?q=${query}`,
+      `${my_api_addr}api/spotify/search?q=${query}`,
     );
     return await this.ai_rephrase(
       `Added ${req.song_name} by ${req.artists}, to the Queue.`,
@@ -41,7 +41,9 @@ class Requests {
   }
 
   async now_playing() {
-    const req = await this.async_http_request(`${my_api_addr}spa/now_playing`);
+    const req = await this.async_http_request(
+      `${my_api_addr}api/spotify/now_playing`,
+    );
     const song_name = req.song_name;
     //const song_link = req.song_link;
     //const playlist_link = req.playlist_link;
@@ -50,7 +52,7 @@ class Requests {
   }
 
   async skip_song() {
-    await this.async_http_request(`${my_api_addr}spa/skip_song`);
+    await this.async_http_request(`${my_api_addr}api/spotify/skip_song`);
     return await this.ai_rephrase(`Skipped song. ${await this.now_playing()}`);
   }
 

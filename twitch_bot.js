@@ -13,10 +13,6 @@ const EVENTSUB_WEBSOCKET_URL = "wss://eventsub.wss.twitch.tv/ws";
 var websocketSessionID;
 
 class TwitchBot {
-  constructor(commands) {
-    this.commands = commands;
-  }
-
   async run() {
     await this.getAuth();
     this.startWebSocketClient();
