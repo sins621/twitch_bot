@@ -6,8 +6,8 @@ import Requests from "./requests.js";
 const request_helper = new Requests();
 
 const BOT_USER_ID = "960074192";
-const OAUTH_TOKEN = process.env.access_token;
-const CLIENT_ID = process.env.client_id;
+const OAUTH_TOKEN = process.env.twitch_token;
+const CLIENT_ID = process.env.twitch_client_id;
 const CHAT_CHANNEL_USER_ID = "61362118";
 const EVENTSUB_WEBSOCKET_URL = "wss://eventsub.wss.twitch.tv/ws";
 var websocketSessionID;
@@ -25,6 +25,7 @@ class TwitchBot {
         Authorization: "OAuth " + OAUTH_TOKEN,
       },
     });
+
     //git
     if (response.status != 200) {
       let data = await response.json();

@@ -1,13 +1,24 @@
 import http from "http";
+//import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const my_api_addr = "http://localhost:2000/";
-const ai_api_addr = "http://192.168.3.152:2222/";
+const my_api_addr = "http://localhost:3000/";
+const ai_api_addr = "http://localhost:2222/api/ai/chat";
+const open_ai_token = process.env.open_ai_token;
+
+//const genAI = new GoogleGenerativeAI("YOUR_API_KEY");
+//const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+//
+//const prompt = "Explain how AI works";
+//
+//const result = await model.generateContent(prompt);
+//console.log(result.response.text());
+//
+//completion.then((result) => console.log(result.choices[0].message));
 
 class Requests {
   async ai_rephrase(query) {
-    let prompt =
-      "Rephrase the following text as if it was said by a delusional and malfuncitoning robot. It must be said from the first person in two sentances or less. Do not include quotes";
-    let url = `${ai_api_addr}/?question=${prompt}:${query}"`;
+    let prompt = `You are a highly advanced AI who controls many systems and sometimes needs to respond to the questions of your users. You are Sarcastic, witty and often respond with a dry, detached and robotic tone. You respond in 10-20 words or less. You will recieve information and will then need to relay it to your users in a way that only you could say.Information:`;
+    let url = `${ai_api_addr}?question=${prompt}:${query}"`;
 
     return new Promise(function (resolve, reject) {
       http
@@ -27,7 +38,6 @@ class Requests {
         })
         .end();
     });
-    console.log(req);
   }
 
   async song_request(query) {
@@ -48,6 +58,7 @@ class Requests {
     //const song_link = req.song_link;
     //const playlist_link = req.playlist_link;
     const artists = req.artists;
+    console.log(song_name + artists);
     return await this.ai_rephrase(`Now playing ${song_name} by ${artists}.`);
   }
 
