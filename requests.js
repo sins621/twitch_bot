@@ -17,7 +17,7 @@ const open_ai_token = process.env.open_ai_token;
 
 class Requests {
   async ai_rephrase(query) {
-    let prompt = `You are a highly advanced AI who controls many systems and sometimes needs to respond to the questions of your users. You are Sarcastic, witty and often respond with a dry, detached and robotic tone. You respond in 10-20 words or less. You will recieve information and will then need to relay it to your users in a way that only you could say.Information:`;
+    let prompt = `Rephrase the following text in around 10 words or less as if it were said by a highly advanced AI who has a dry, sarcastic wit who delivers cutting remarks with a detached robotic tone. Do not include Double Quotes. Phrase:`;
     let url = `${ai_api_addr}?question=${prompt}:${query}"`;
 
     return new Promise(function (resolve, reject) {
@@ -30,6 +30,17 @@ class Requests {
           });
 
           res.on("end", () => {
+            if (typeof data === "string") {
+              let no_quotes = data;
+              if (no_quotes[0] === '"') {
+                no_quotes = no_quotes.replace(no_quotes.charAt(0), "");
+              }
+              if (no_quotes[no_quotes.length - 1] === '"') {
+                no_quotes = no_quotes.replace(/.$/, "");
+              }
+              console.log(data);
+              resolve(no_quotes);
+            }
             resolve(data);
           });
         })
@@ -55,8 +66,6 @@ class Requests {
       `${my_api_addr}api/spotify/now_playing`,
     );
     const song_name = req.song_name;
-    //const song_link = req.song_link;
-    //const playlist_link = req.playlist_link;
     const artists = req.artists;
     console.log(song_name + artists);
     return await this.ai_rephrase(`Now playing ${song_name} by ${artists}.`);
