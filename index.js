@@ -17,7 +17,9 @@ try {
   const TOKENS = JSON.parse(
     await fs.readFile("tokens.json", { encoding: "utf8" }),
   );
-  console.log(TOKENS);
+  var AUTH_TOKEN = TOKENS.auth_token;
+  var REFRESH_TOKEN = TOKENS.refresh_token;
+  var EXPIRE_TIME = TOKENS.expire_time;
 } catch (err) {
   if (err.code !== "ENOENT") {
     throw err;
@@ -25,6 +27,14 @@ try {
     var AUTH_TOKEN = null;
     var REFRESH_TOKEN = null;
     var EXPIRE_TIME = null;
+  }
+}
+
+function token_expired(expire_time) {
+  if (Date.now() > expire_time) {
+    return true;
+  } else {
+    return false;
   }
 }
 
@@ -60,6 +70,7 @@ APP.get(`${ENDPOINT}/authenticate`, async (_req, res) => {
 });
 
 APP.get(`${ENDPOINT}/auth_redirect`, async (req, res) => {
+  res.setHeader("Content-Type", "application/json");
   const CODE = req.query.code;
   const TWITCH_TOKEN_ENDPOINT = "https://id.twitch.tv/oauth2/token";
   const PARAMS = {
@@ -75,11 +86,13 @@ APP.get(`${ENDPOINT}/auth_redirect`, async (req, res) => {
     const DATA = RESULT.data;
 
     if (!DATA.hasOwnProperty("access_token")) {
-      return res.send("Authorization Failed").status(401);
+      return res
+        .end(JSON.stringify({ error: `Error Fetching Auth Token` }))
+        .status(401);
     }
 
     AUTH_TOKEN = DATA.access_token;
-    EXPIRE_TIME = Date.now() + DATA.expire_time * 1000;
+    EXPIRE_TIME = Date.now() + DATA.expires_in * 1000;
 
     if (DATA.hasOwnProperty("refresh_token")) {
       REFRESH_TOKEN = DATA.refresh_token;
@@ -93,9 +106,13 @@ APP.get(`${ENDPOINT}/auth_redirect`, async (req, res) => {
 
     await fs.writeFile("tokens.json", TOKENS, { encoding: "utf8" });
   } catch (err) {
-    console.log(err);
+    return res
+      .end(JSON.stringify({ error: `Server Error: ${err}` }))
+      .status(503);
   }
-  return res.send("Twitch is Authenticated").status(200);
+  return res
+    .end(JSON.stringify({ message: `Successfully Authenticated Twitch` }))
+    .status(200);
 });
 
 APP.listen(PORT, () => {
