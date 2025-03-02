@@ -187,6 +187,7 @@ async function exec_command(command) {
         console.log(err);
       }
       break;
+
     case "!queue":
       try {
         const REQUEST = await axios.get(`${SPOTIFY_ENDPOINT}/queue`);
@@ -199,7 +200,7 @@ async function exec_command(command) {
         for (let i = 0; i < DATA.length; ++i) {
           const SONG_NAME = DATA[i].song_name;
           const ARTISTS = DATA[i].artists.toString().replace(/,/g, ", ");
-          message += `${i+1}. ${SONG_NAME} by ${ARTISTS}`;
+          message += `${i + 1}. ${SONG_NAME} by ${ARTISTS}`;
           if (i < DATA.length - 1) {
             message += ", ";
           } else {
@@ -211,6 +212,11 @@ async function exec_command(command) {
         console.log(err);
       }
       break;
+    case "!skip":
+      try {
+        await axios.get(`${SPOTIFY_ENDPOINT}/skip`);
+        send_chat_message("Song Skipped");
+      } catch (err) {}
   }
 }
 
