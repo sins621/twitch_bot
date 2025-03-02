@@ -175,10 +175,38 @@ async function exec_command(command) {
     case "!song":
       try {
         const REQUEST = await axios.get(`${SPOTIFY_ENDPOINT}/playing`);
+        if (REQUEST.status === 204) {
+          send_chat_message("No song is currently playing");
+          break;
+        }
         const DATA = REQUEST.data;
         const SONG_NAME = DATA.song_name;
         const ARTISTS = DATA.artists.toString().replace(/,/g, ", ");
         send_chat_message(`Now playing ${SONG_NAME} by ${ARTISTS}.`);
+      } catch (err) {
+        console.log(err);
+      }
+      break;
+    case "!queue":
+      try {
+        const REQUEST = await axios.get(`${SPOTIFY_ENDPOINT}/queue`);
+        if (REQUEST.status === 204) {
+          send_chat_message("No songs are currently playing");
+          break;
+        }
+        const DATA = REQUEST.data;
+        let message = "";
+        for (let i = 0; i < DATA.length; ++i) {
+          const SONG_NAME = DATA[i].song_name;
+          const ARTISTS = DATA[i].artists.toString().replace(/,/g, ", ");
+          message += `${i+1}. ${SONG_NAME} by ${ARTISTS}`;
+          if (i < DATA.length - 1) {
+            message += ", ";
+          } else {
+            message += ".";
+          }
+        }
+        send_chat_message(message);
       } catch (err) {
         console.log(err);
       }
