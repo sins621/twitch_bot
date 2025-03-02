@@ -151,19 +151,38 @@ async function websocket_client() {
       var subscription_type = socket_data.metadata.subscription_type;
     }
 
+    // TODO: Refactor this into something with less nesting somehow
     if (subscription_type === "channel.chat.message") {
       var sender = socket_data.payload.event.chatter_user_login;
       var chat_message = socket_data.payload.event.message.text.trim();
       console.log(`${sender}: ${chat_message}`);
-    }
-
-    switch (chat_message) {
-      case "test":
-        send_chat_message("hallo");
-        break;
+      if (Array.from(chat_message)[0] === "!") {
+        var chat_command = chat_message.match(/^\s*(\S+)\s*(.*?)\s*$/).slice(1);
+        if (Array.from(chat_command[1]).length === 0) {
+          exec_command(chat_command[0]);
+        } else {
+          exec_command_with_query(chat_command[0], chat_command[1]);
+        }
+      }
     }
   });
   return websocket_client;
+}
+
+async function exec_command(command) {
+  switch (command) {
+    case "!test":
+      send_chat_message("hallo");
+      break;
+  }
+}
+
+async function exec_command_with_query(command, query) {
+  switch (command) {
+    case "!test2":
+      send_chat_message(query);
+      break;
+  }
 }
 
 async function registerEventSubListeners(WEBSOCKET_SESSION_ID) {
