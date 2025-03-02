@@ -19,6 +19,7 @@ const SCOPES = "channel:bot user:bot user:read:chat user:write:chat";
 const EVENTSUB_WEBSOCKET_URL = "wss://eventsub.wss.twitch.tv/ws";
 const BOT_USER_ID = "960074192";
 const CHAT_CHANNEL_USER_ID = "61362118";
+const SPOTIFY_ENDPOINT = "https://www.sins621.com/api/spotify";
 
 try {
   const TOKENS = JSON.parse(
@@ -171,16 +172,37 @@ async function websocket_client() {
 
 async function exec_command(command) {
   switch (command) {
-    case "!test":
-      send_chat_message("hallo");
+    case "!song":
+      try {
+        const REQUEST = await axios.get(`${SPOTIFY_ENDPOINT}/playing`);
+        const DATA = REQUEST.data;
+        const SONG_NAME = DATA.song_name;
+        const ARTISTS = DATA.artists.toString().replace(/,/g, ", ");
+        send_chat_message(`Now playing ${SONG_NAME} by ${ARTISTS}.`);
+      } catch (err) {
+        console.log(err);
+      }
       break;
   }
 }
 
 async function exec_command_with_query(command, query) {
   switch (command) {
-    case "!test2":
-      send_chat_message(query);
+    case "!songrequest":
+      try {
+        const REQUEST = await fetch(
+          `${SPOTIFY_ENDPOINT}/search?` +
+            new URLSearchParams({
+              q: query,
+            }).toString(),
+        );
+        const DATA = await REQUEST.json();
+        const SONG_NAME = DATA.song_name;
+        const ARTISTS = DATA.artists.toString().replace(/,/g, ", ");
+        send_chat_message(`Added ${SONG_NAME} by ${ARTISTS} to the queue.`);
+      } catch (err) {
+        console.log(err);
+      }
       break;
   }
 }
