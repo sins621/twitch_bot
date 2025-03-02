@@ -6,7 +6,8 @@ import "dotenv/config";
 import WebSocket from "ws";
 
 // TODO: Error Handling
-// TODO: Token Refreshing
+// TODO: Validate Token on Startup and Refresh if Necessary
+// TODO: Deployment
 
 const APP = express();
 const PORT = 7817;
@@ -27,24 +28,14 @@ try {
   );
   var AUTH_TOKEN = TOKENS.auth_token;
   var REFRESH_TOKEN = TOKENS.refresh_token;
-  var EXPIRE_TIME = TOKENS.expire_time;
 } catch (err) {
   if (err.code !== "ENOENT") {
     throw err;
   } else {
     var AUTH_TOKEN = null;
     var REFRESH_TOKEN = null;
-    var EXPIRE_TIME = null;
   }
 }
-
-//function token_expired(expire_time) {
-//  if (Date.now() > EXPIRE_TIME) {
-//    return true;
-//  } else {
-//    return false;
-//  }
-//}
 
 function encode_params(params) {
   let ENCODED_STRING = "";
@@ -100,7 +91,6 @@ APP.get(`${ENDPOINT}/auth_redirect`, async (req, res) => {
     }
 
     AUTH_TOKEN = DATA.access_token;
-    EXPIRE_TIME = Date.now() + DATA.expires_in * 1000;
 
     if (DATA.hasOwnProperty("refresh_token")) {
       REFRESH_TOKEN = DATA.refresh_token;
@@ -109,7 +99,6 @@ APP.get(`${ENDPOINT}/auth_redirect`, async (req, res) => {
     const TOKENS = JSON.stringify({
       auth_token: AUTH_TOKEN,
       refresh_token: REFRESH_TOKEN,
-      expire_time: EXPIRE_TIME,
     });
 
     await fs.writeFile("tokens.json", TOKENS, { encoding: "utf8" });
@@ -145,7 +134,7 @@ async function websocket_client() {
 
     if (message_type === "session_welcome") {
       const WEBSOCKET_SESSION_ID = socket_data.payload.session.id;
-      registerEventSubListeners(WEBSOCKET_SESSION_ID);
+      register_event_sub_listeners(WEBSOCKET_SESSION_ID);
     }
 
     if (message_type === "notification") {
@@ -191,7 +180,7 @@ async function exec_command(command) {
     case "!queue":
       try {
         const REQUEST = await axios.get(`${SPOTIFY_ENDPOINT}/queue`);
-        if (REQUEST.status === 204) {
+        if (REQUEST.status === 204 || REQUEST.data.length === 0) {
           send_chat_message("No songs are currently playing");
           break;
         }
@@ -212,6 +201,7 @@ async function exec_command(command) {
         console.log(err);
       }
       break;
+
     case "!skip":
       try {
         await axios.get(`${SPOTIFY_ENDPOINT}/skip`);
@@ -241,8 +231,8 @@ async function exec_command_with_query(command, query) {
   }
 }
 
-async function registerEventSubListeners(WEBSOCKET_SESSION_ID) {
-  console.log("registerEventSubListeners");
+async function register_event_sub_listeners(WEBSOCKET_SESSION_ID) {
+  console.log("Registering Event Sub Listeners");
   const HEADERS = {
     Authorization: "Bearer " + AUTH_TOKEN,
     "Client-Id": CLIENT_ID,
@@ -267,7 +257,46 @@ async function registerEventSubListeners(WEBSOCKET_SESSION_ID) {
     { headers: HEADERS },
   );
 
-  if (response.status != 202) {
+  if (response.status === 401) {
+    const TWITCH_REFRESH_ENDPOINT = "https://id.twitch.tv/oauth2/token";
+    const PARAMS = {
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      grant_type: "refresh_token",
+      refresh_token: REFRESH_TOKEN,
+    };
+
+    try {
+      const RESULT = await axios.post(TWITCH_REFRESH_ENDPOINT, PARAMS);
+      const DATA = RESULT.data;
+
+      if (!DATA.hasOwnProperty("access_token")) {
+        return res
+          .end(JSON.stringify({ error: `Error Fetching Auth Token` }))
+          .status(401);
+      }
+
+      AUTH_TOKEN = DATA.access_token;
+
+      if (DATA.hasOwnProperty("refresh_token")) {
+        REFRESH_TOKEN = DATA.refresh_token;
+      }
+
+      const TOKENS = JSON.stringify({
+        auth_token: AUTH_TOKEN,
+        refresh_token: REFRESH_TOKEN,
+      });
+
+      await fs.writeFile("tokens.json", TOKENS, { encoding: "utf8" });
+      setTimeout(() => {
+        websocket_client();
+      }, 1000 * 10);
+    } catch (err) {
+      return res
+        .end(JSON.stringify({ error: `Server Error: ${err}` }))
+        .status(503);
+    }
+  } else if (response.status != 202) {
     console.error(
       "Failed to subscribe to channel.chat.message. API call returned status code " +
         response.status,
@@ -302,6 +331,12 @@ async function send_chat_message(chat_message) {
   } else {
     console.log("Sent chat message: " + chat_message);
   }
+}
+
+try {
+  websocket_client();
+} catch (err) {
+  console.log("Error Starting Twitch Bot");
 }
 
 APP.listen(PORT, () => {
