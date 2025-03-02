@@ -124,7 +124,7 @@ APP.get(`${ENDPOINT}/auth_redirect`, async (req, res) => {
 
 APP.get(`${ENDPOINT}/start`, async (_req, res) => {
   try {
-    let websocket = websocket_client();
+    websocket_client();
     return res.send("Started Bot").status(200);
   } catch (err) {
     return res.send("Server Error").status(500);
@@ -152,9 +152,15 @@ async function websocket_client() {
     }
 
     if (subscription_type === "channel.chat.message") {
-      var sender = socket_data.payload.event.broadcaster_user_login;
+      var sender = socket_data.payload.event.chatter_user_login;
       var chat_message = socket_data.payload.event.message.text.trim();
       console.log(`${sender}: ${chat_message}`);
+    }
+
+    switch (chat_message) {
+      case "test":
+        send_chat_message("hallo");
+        break;
     }
   });
   return websocket_client;
@@ -187,13 +193,39 @@ async function registerEventSubListeners(WEBSOCKET_SESSION_ID) {
   );
 
   if (response.status != 202) {
-    let data = response;
     console.error(
       "Failed to subscribe to channel.chat.message. API call returned status code " +
         response.status,
     );
   } else {
     console.log(`Subscribed to channel.chat.message`);
+  }
+}
+
+async function send_chat_message(chat_message) {
+  const HEADERS = {
+    Authorization: "Bearer " + AUTH_TOKEN,
+    "Client-Id": CLIENT_ID,
+    "Content-Type": "application/json",
+  };
+  const BODY = {
+    broadcaster_id: CHAT_CHANNEL_USER_ID,
+    sender_id: BOT_USER_ID,
+    message: chat_message,
+  };
+
+  let response = await axios.post(
+    "https://api.twitch.tv/helix/chat/messages",
+    BODY,
+    { headers: HEADERS },
+  );
+
+  if (response.status != 200) {
+    let data = await response.json();
+    console.error("Failed to send chat message");
+    console.error(data);
+  } else {
+    console.log("Sent chat message: " + chat_message);
   }
 }
 
