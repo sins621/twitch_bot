@@ -128,5 +128,6 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
-tokens.json
-tokens.json
+
+
+.json

@@ -2,6 +2,7 @@
 import "dotenv/config";
 import WebSocket from "ws";
 import Requests from "./requests.js";
+import fs from "node:fs/promises";
 
 const request_helper = new Requests();
 
@@ -10,11 +11,24 @@ const CHAT_CHANNEL_USER_ID = "61362118";
 const EVENTSUB_WEBSOCKET_URL = "wss://eventsub.wss.twitch.tv/ws";
 var websocketSessionID;
 
-class TwitchBot {
-  constructor(oauth_token, client_id) {
-    this.oauth_token = oauth_token;
-    this.client_id = client_id;
+const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
+
+try {
+  const TOKENS = JSON.parse(
+    await fs.readFile("tokens.json", { encoding: "utf8" }),
+  );
+  var AUTH_TOKEN = TOKENS.auth_token;
+} catch (err) {
+  if (err.code !== "ENOENT") {
+    throw err;
+  } else {
+    var AUTH_TOKEN = null;
   }
+}
+
+class TwitchBot {
+  oauth_token = AUTH_TOKEN;
+  client_id = CLIENT_ID;
 
   async run() {
     await this.getAuth();
@@ -129,7 +143,6 @@ class TwitchBot {
   }
 
   async registerEventSubListeners() {
-    console.log(CHAT_CHANNEL_USER_ID);
     console.log("registerEventSubListeners");
     let response = await fetch(
       "https://api.twitch.tv/helix/eventsub/subscriptions",
@@ -171,3 +184,7 @@ class TwitchBot {
 }
 
 export default TwitchBot;
+
+let twitch_bot = new TwitchBot();
+
+twitch_bot.run();
