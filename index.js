@@ -251,85 +251,88 @@ async function register_event_sub_listeners(WEBSOCKET_SESSION_ID) {
     },
   };
 
-  let response = await axios.post(
-    "https://api.twitch.tv/helix/eventsub/subscriptions",
-    BODY,
-    { headers: HEADERS },
-  );
+  try {
+    let response = await axios.post(
+      "https://api.twitch.tv/helix/eventsub/subscriptions",
+      BODY,
+      { headers: HEADERS },
+    );
+    var response_status = response.data.status;
+  } catch (err) {
+    if (err.code === "ERR_BAD_REQUEST") {
+      const TWITCH_REFRESH_ENDPOINT = "https://id.twitch.tv/oauth2/token";
+      const PARAMS = {
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        grant_type: "refresh_token",
+        refresh_token: REFRESH_TOKEN,
+      };
 
-  if (response.status === 401) {
-    const TWITCH_REFRESH_ENDPOINT = "https://id.twitch.tv/oauth2/token";
-    const PARAMS = {
-      client_id: CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      grant_type: "refresh_token",
-      refresh_token: REFRESH_TOKEN,
+      try {
+        const RESULT = await axios.post(TWITCH_REFRESH_ENDPOINT, PARAMS);
+        const DATA = RESULT.data;
+
+        if (!DATA.hasOwnProperty("access_token")) {
+          return res
+            .end(JSON.stringify({ error: `Error Fetching Auth Token` }))
+            .status(401);
+        }
+
+        AUTH_TOKEN = DATA.access_token;
+
+        if (DATA.hasOwnProperty("refresh_token")) {
+          REFRESH_TOKEN = DATA.refresh_token;
+        }
+
+        const TOKENS = JSON.stringify({
+          auth_token: AUTH_TOKEN,
+          refresh_token: REFRESH_TOKEN,
+        });
+
+        await fs.writeFile("tokens.json", TOKENS, { encoding: "utf8" });
+        setTimeout(() => {
+          websocket_client();
+        }, 1000 * 10);
+      } catch (err) {
+        return res
+          .end(JSON.stringify({ error: `Server Error: ${err}` }))
+          .status(503);
+      }
+    } else if (response_status != 202) {
+      console.error(
+        "Failed to subscribe to channel.chat.message. API call returned status code " +
+          response.status,
+      );
+    } else {
+      console.log(`Subscribed to channel.chat.message`);
+    }
+  }
+
+  async function send_chat_message(chat_message) {
+    const HEADERS = {
+      Authorization: "Bearer " + AUTH_TOKEN,
+      "Client-Id": CLIENT_ID,
+      "Content-Type": "application/json",
+    };
+    const BODY = {
+      broadcaster_id: CHAT_CHANNEL_USER_ID,
+      sender_id: BOT_USER_ID,
+      message: chat_message,
     };
 
-    try {
-      const RESULT = await axios.post(TWITCH_REFRESH_ENDPOINT, PARAMS);
-      const DATA = RESULT.data;
-
-      if (!DATA.hasOwnProperty("access_token")) {
-        return res
-          .end(JSON.stringify({ error: `Error Fetching Auth Token` }))
-          .status(401);
-      }
-
-      AUTH_TOKEN = DATA.access_token;
-
-      if (DATA.hasOwnProperty("refresh_token")) {
-        REFRESH_TOKEN = DATA.refresh_token;
-      }
-
-      const TOKENS = JSON.stringify({
-        auth_token: AUTH_TOKEN,
-        refresh_token: REFRESH_TOKEN,
-      });
-
-      await fs.writeFile("tokens.json", TOKENS, { encoding: "utf8" });
-      setTimeout(() => {
-        websocket_client();
-      }, 1000 * 10);
-    } catch (err) {
-      return res
-        .end(JSON.stringify({ error: `Server Error: ${err}` }))
-        .status(503);
-    }
-  } else if (response.status != 202) {
-    console.error(
-      "Failed to subscribe to channel.chat.message. API call returned status code " +
-        response.status,
+    let response = await axios.post(
+      "https://api.twitch.tv/helix/chat/messages",
+      BODY,
+      { headers: HEADERS },
     );
-  } else {
-    console.log(`Subscribed to channel.chat.message`);
-  }
-}
 
-async function send_chat_message(chat_message) {
-  const HEADERS = {
-    Authorization: "Bearer " + AUTH_TOKEN,
-    "Client-Id": CLIENT_ID,
-    "Content-Type": "application/json",
-  };
-  const BODY = {
-    broadcaster_id: CHAT_CHANNEL_USER_ID,
-    sender_id: BOT_USER_ID,
-    message: chat_message,
-  };
-
-  let response = await axios.post(
-    "https://api.twitch.tv/helix/chat/messages",
-    BODY,
-    { headers: HEADERS },
-  );
-
-  if (response.status != 200) {
-    let data = await response.json();
-    console.error("Failed to send chat message");
-    console.error(data);
-  } else {
-    console.log("Sent chat message: " + chat_message);
+    if (response.status != 200) {
+      let data = await response.json();
+      console.error("Failed to send chat message");
+      console.error(data);
+    } else {
+      console.log("Sent chat message: " + chat_message);
+    }
   }
 }
 
