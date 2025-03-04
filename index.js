@@ -1,9 +1,9 @@
 import express from "express";
+import axios from "axios";
 import fs from "node:fs/promises";
 import morgan from "morgan";
 import "dotenv/config";
 import WebSocket from "ws";
-import { URLSearchParams } from "node:url";
 
 // TODO: Error Handling
 // TODO: Validate Token on Startup and Refresh if Necessary
@@ -37,19 +37,34 @@ try {
   }
 }
 
+function encodeParams(params) {
+  let encodedString = "";
+  let i = 0;
+  Object.entries(params).forEach(([key, value]) => {
+    if (i === Object.keys(params).length - 1) {
+      encodedString += `${key}=${encodeURIComponent(value)}`;
+    } else {
+      encodedString += `${key}=${encodeURIComponent(value)}&`;
+    }
+    i++;
+  });
+
+  return encodedString;
+}
+
 APP.use(morgan("tiny"));
 
 APP.get(`${ENDPOINT}/authenticate`, async (_req, res) => {
   const TWITCH_CODE_ENDPOINT = "https://id.twitch.tv/oauth2/authorize";
-  const PARAMS = new URLSearchParams({
+  const PARAMS = {
     response_type: "code",
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URL,
     scope: SCOPES,
     state: STATE,
-  }).toString();
+  };
 
-  const URL = `${TWITCH_CODE_ENDPOINT}?${PARAMS}`;
+  const URL = `${TWITCH_CODE_ENDPOINT}?${encodeParams(PARAMS)}`;
   return res.redirect(URL);
 });
 
@@ -57,20 +72,17 @@ APP.get(`${ENDPOINT}/auth_redirect`, async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   const CODE = req.query.code;
   const TWITCH_TOKEN_ENDPOINT = "https://id.twitch.tv/oauth2/token";
-  const BODY = JSON.stringify({
+  const PARAMS = {
     client_id: CLIENT_ID,
     client_secret: CLIENT_SECRET,
     code: CODE,
     grant_type: "authorization_code",
     redirect_uri: REDIRECT_URL,
-  });
+  };
 
   try {
-    const RESULT = await fetch(TWITCH_TOKEN_ENDPOINT, {
-      method: "POST",
-      body: BODY,
-    });
-    const DATA = await RESULT.json();
+    const RESULT = await axios.post(TWITCH_TOKEN_ENDPOINT, PARAMS);
+    const DATA = RESULT.data;
 
     if (!DATA.hasOwnProperty("access_token")) {
       return res
@@ -114,19 +126,16 @@ try {
 
   if (response.status == 401) {
     const TWITCH_REFRESH_ENDPOINT = "https://id.twitch.tv/oauth2/token";
-    const BODY = JSON.stringify({
+    const PARAMS = {
       client_id: CLIENT_ID,
       client_secret: CLIENT_SECRET,
       grant_type: "refresh_token",
       refresh_token: refreshToken,
-    });
+    };
 
     try {
-      const RESULT = await fetch(TWITCH_REFRESH_ENDPOINT, {
-        method: "POST",
-        body: BODY,
-      });
-      const DATA = await RESULT.json();
+      const RESULT = await axios.post(TWITCH_REFRESH_ENDPOINT, PARAMS);
+      const DATA = RESULT.data;
 
       if (!DATA.hasOwnProperty("access_token")) {
         throw Error(`Error Fetching Auth Token`);
@@ -154,6 +163,7 @@ try {
     );
   }
 
+  console.log(response);
   console.log("Validated token.");
 } catch (err) {
   console.log("Error Starting Twitch Bot");
@@ -176,7 +186,7 @@ try {
         "Client-Id": CLIENT_ID,
         "Content-Type": "application/json",
       };
-      const BODY = JSON.stringify({
+      const BODY = {
         type: "channel.chat.message",
         version: "1",
         condition: {
@@ -187,23 +197,24 @@ try {
           method: "websocket",
           session_id: WEBSOCKET_SESSION_ID,
         },
-      });
+      };
 
       try {
-        let response = await fetch(
+        let response = await axios.post(
           "https://api.twitch.tv/helix/eventsub/subscriptions",
-          { method: "POST", headers: HEADERS, body: BODY },
+          BODY,
+          { headers: HEADERS },
         );
-        var responseStatus = response.status;
-        if (responseStatus != 202) {
-          throw Error;
-        }
-        console.log("Registered to Twitch Chat");
+        var responseStatus = response.data.status;
       } catch (err) {
-        console.error(
-          "Failed to subscribe to channel.chat.message. API call returned status code " +
-            responseStatus,
-        );
+        if (responseStatus != 202) {
+          console.error(
+            "Failed to subscribe to channel.chat.message. API call returned status code " +
+              response.status,
+          );
+        } else {
+          console.log(`Subscribed to channel.chat.message`);
+        }
       }
     }
 
@@ -222,9 +233,7 @@ try {
           switch (chatCommand[0]) {
             case "!song":
               try {
-                const REQUEST = await fetch(`${SPOTIFY_ENDPOINT}/playing`, {
-                  method: "GET",
-                });
+                const REQUEST = await axios.get(`${SPOTIFY_ENDPOINT}/playing`);
                 if (REQUEST.status === 204) {
                   sendChatMessage("No song is currently playing");
                   break;
@@ -240,9 +249,7 @@ try {
 
             case "!queue":
               try {
-                const REQUEST = await fetch(`${SPOTIFY_ENDPOINT}/queue`, {
-                  method: "GET",
-                });
+                const REQUEST = await axios.get(`${SPOTIFY_ENDPOINT}/queue`);
                 if (REQUEST.status === 204 || REQUEST.data.length === 0) {
                   sendChatMessage("No songs are currently playing");
                   break;
@@ -269,7 +276,7 @@ try {
 
             case "!skip":
               try {
-                await fetch(`${SPOTIFY_ENDPOINT}/skip`, { method: "GET" });
+                await axios.get(`${SPOTIFY_ENDPOINT}/skip`);
                 sendChatMessage("Song Skipped");
               } catch (err) {}
           }
@@ -306,17 +313,17 @@ async function sendChatMessage(chatMessage) {
     "Client-Id": CLIENT_ID,
     "Content-Type": "application/json",
   };
-  const BODY = JSON.stringify({
+  const BODY = {
     broadcaster_id: CHAT_CHANNEL_USER_ID,
     sender_id: BOT_USER_ID,
     message: chatMessage,
-  });
+  };
 
-  let response = fetch("https://api.twitch.tv/helix/chat/messages", {
-    method: "POST",
-    headers: HEADERS,
-    body: BODY,
-  });
+  let response = await axios.post(
+    "https://api.twitch.tv/helix/chat/messages",
+    BODY,
+    { headers: HEADERS },
+  );
 
   if (response.status != 200) {
     let data = await response.json();
@@ -326,6 +333,7 @@ async function sendChatMessage(chatMessage) {
     console.log("Sent chat message: " + chatMessage);
   }
 }
+
 
 // NOTE: maybe use later???
 
