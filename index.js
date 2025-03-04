@@ -26,30 +26,30 @@ try {
   const TOKENS = JSON.parse(
     await fs.readFile("tokens.json", { encoding: "utf8" }),
   );
-  var AUTH_TOKEN = TOKENS.auth_token;
-  var REFRESH_TOKEN = TOKENS.refresh_token;
+  var authToken = TOKENS.auth_token;
+  var refreshToken = TOKENS.refresh_token;
 } catch (err) {
   if (err.code !== "ENOENT") {
     throw err;
   } else {
-    var AUTH_TOKEN = null;
-    var REFRESH_TOKEN = null;
+    var authToken = null;
+    var refreshToken = null;
   }
 }
 
-function encode_params(params) {
-  let ENCODED_STRING = "";
+function encodeParams(params) {
+  let encodedString = "";
   let i = 0;
   Object.entries(params).forEach(([key, value]) => {
     if (i === Object.keys(params).length - 1) {
-      ENCODED_STRING += `${key}=${encodeURIComponent(value)}`;
+      encodedString += `${key}=${encodeURIComponent(value)}`;
     } else {
-      ENCODED_STRING += `${key}=${encodeURIComponent(value)}&`;
+      encodedString += `${key}=${encodeURIComponent(value)}&`;
     }
     i++;
   });
 
-  return ENCODED_STRING;
+  return encodedString;
 }
 
 APP.use(morgan("tiny"));
@@ -64,7 +64,7 @@ APP.get(`${ENDPOINT}/authenticate`, async (_req, res) => {
     state: STATE,
   };
 
-  const URL = `${TWITCH_CODE_ENDPOINT}?${encode_params(PARAMS)}`;
+  const URL = `${TWITCH_CODE_ENDPOINT}?${encodeParams(PARAMS)}`;
   return res.redirect(URL);
 });
 
@@ -90,15 +90,15 @@ APP.get(`${ENDPOINT}/auth_redirect`, async (req, res) => {
         .status(401);
     }
 
-    AUTH_TOKEN = DATA.access_token;
+    authToken = DATA.access_token;
 
     if (DATA.hasOwnProperty("refresh_token")) {
-      REFRESH_TOKEN = DATA.refresh_token;
+      refreshToken = DATA.refresh_token;
     }
 
     const TOKENS = JSON.stringify({
-      auth_token: AUTH_TOKEN,
-      refresh_token: REFRESH_TOKEN,
+      auth_token: authToken,
+      refresh_token: refreshToken,
     });
 
     await fs.writeFile("tokens.json", TOKENS, { encoding: "utf8" });
@@ -112,239 +112,226 @@ APP.get(`${ENDPOINT}/auth_redirect`, async (req, res) => {
     .status(200);
 });
 
-APP.get(`${ENDPOINT}/start`, async (_req, res) => {
-  try {
-    websocket_client();
-    return res.send("Started Bot").status(200);
-  } catch (err) {
-    return res.send("Server Error").status(500);
-  }
+APP.listen(PORT, () => {
+  console.log(`Listening on port: ${PORT}`);
 });
 
-async function websocket_client() {
-  let websocket_client = new WebSocket(EVENTSUB_WEBSOCKET_URL);
-  websocket_client.on("error", console.error);
-  websocket_client.on("open", () => {
+try {
+  let response = await fetch("https://id.twitch.tv/oauth2/validate", {
+    method: "GET",
+    headers: {
+      Authorization: "OAuth " + authToken,
+    },
+  });
+
+  if (response.status == 401) {
+    const TWITCH_REFRESH_ENDPOINT = "https://id.twitch.tv/oauth2/token";
+    const PARAMS = {
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    };
+
+    try {
+      const RESULT = await axios.post(TWITCH_REFRESH_ENDPOINT, PARAMS);
+      const DATA = RESULT.data;
+
+      if (!DATA.hasOwnProperty("access_token")) {
+        throw Error(`Error Fetching Auth Token`);
+      }
+
+      authToken = DATA.access_token;
+
+      if (DATA.hasOwnProperty("refresh_token")) {
+        refreshToken = DATA.refresh_token;
+      }
+
+      const TOKENS = JSON.stringify({
+        auth_token: authToken,
+        refresh_token: refreshToken,
+      });
+
+      await fs.writeFile("tokens.json", TOKENS, { encoding: "utf8" });
+    } catch (err) {
+      console.log(`Server Error: ${err}`);
+    }
+  } else if (response.status != 200) {
+    console.log(
+      "Token is not valid. /oauth2/validate returned status code " +
+        response.status,
+    );
+  }
+
+  console.log(response);
+  console.log("Validated token.");
+} catch (err) {
+  console.log("Error Starting Twitch Bot");
+} finally {
+  let websocketClient = new WebSocket(EVENTSUB_WEBSOCKET_URL);
+  websocketClient.on("error", console.error);
+  websocketClient.on("open", () => {
     console.log("WebSocket connection opened to " + EVENTSUB_WEBSOCKET_URL);
   });
 
-  websocket_client.on("message", async (data) => {
-    let socket_data = JSON.parse(data.toString());
-    let message_type = socket_data.metadata.message_type;
+  websocketClient.on("message", async (data) => {
+    let socketData = JSON.parse(data.toString());
+    let messageType = socketData.metadata.message_type;
 
-    if (message_type === "session_welcome") {
-      const WEBSOCKET_SESSION_ID = socket_data.payload.session.id;
-      register_event_sub_listeners(WEBSOCKET_SESSION_ID);
+    if (messageType === "session_welcome") {
+      const WEBSOCKET_SESSION_ID = socketData.payload.session.id;
+      console.log("Registering Event Sub Listeners");
+      const HEADERS = {
+        Authorization: "Bearer " + authToken,
+        "Client-Id": CLIENT_ID,
+        "Content-Type": "application/json",
+      };
+      const BODY = {
+        type: "channel.chat.message",
+        version: "1",
+        condition: {
+          broadcaster_user_id: CHAT_CHANNEL_USER_ID,
+          user_id: BOT_USER_ID,
+        },
+        transport: {
+          method: "websocket",
+          session_id: WEBSOCKET_SESSION_ID,
+        },
+      };
+
+      try {
+        let response = await axios.post(
+          "https://api.twitch.tv/helix/eventsub/subscriptions",
+          BODY,
+          { headers: HEADERS },
+        );
+        var responseStatus = response.data.status;
+      } catch (err) {
+        if (responseStatus != 202) {
+          console.error(
+            "Failed to subscribe to channel.chat.message. API call returned status code " +
+              response.status,
+          );
+        } else {
+          console.log(`Subscribed to channel.chat.message`);
+        }
+      }
     }
 
-    if (message_type === "notification") {
-      var subscription_type = socket_data.metadata.subscription_type;
+    if (messageType === "notification") {
+      var subscriptionType = socketData.metadata.subscription_type;
     }
 
     // TODO: Refactor this into something with less nesting somehow
-    if (subscription_type === "channel.chat.message") {
-      var sender = socket_data.payload.event.chatter_user_login;
-      var chat_message = socket_data.payload.event.message.text.trim();
-      console.log(`${sender}: ${chat_message}`);
-      if (Array.from(chat_message)[0] === "!") {
-        var chat_command = chat_message.match(/^\s*(\S+)\s*(.*?)\s*$/).slice(1);
-        if (Array.from(chat_command[1]).length === 0) {
-          exec_command(chat_command[0]);
+    if (subscriptionType === "channel.chat.message") {
+      var sender = socketData.payload.event.chatter_user_login;
+      var chatMessage = socketData.payload.event.message.text.trim();
+      console.log(`${sender}: ${chatMessage}`);
+      if (Array.from(chatMessage)[0] === "!") {
+        var chatCommand = chatMessage.match(/^\s*(\S+)\s*(.*?)\s*$/).slice(1);
+        if (Array.from(chatCommand[1]).length === 0) {
+          switch (chatCommand[0]) {
+            case "!song":
+              try {
+                const REQUEST = await axios.get(`${SPOTIFY_ENDPOINT}/playing`);
+                if (REQUEST.status === 204) {
+                  sendChatMessage("No song is currently playing");
+                  break;
+                }
+                const DATA = REQUEST.data;
+                const SONG_NAME = DATA.song_name;
+                const ARTISTS = DATA.artists.toString().replace(/,/g, ", ");
+                sendChatMessage(`Now playing ${SONG_NAME} by ${ARTISTS}.`);
+              } catch (err) {
+                console.log(err);
+              }
+              break;
+
+            case "!queue":
+              try {
+                const REQUEST = await axios.get(`${SPOTIFY_ENDPOINT}/queue`);
+                if (REQUEST.status === 204 || REQUEST.data.length === 0) {
+                  sendChatMessage("No songs are currently playing");
+                  break;
+                }
+                const DATA = REQUEST.data;
+                let message = "";
+                for (let i = 0; i < DATA.length; ++i) {
+                  const SONG_NAME = DATA[i].song_name;
+                  const ARTISTS = DATA[i].artists
+                    .toString()
+                    .replace(/,/g, ", ");
+                  message += `${i + 1}. ${SONG_NAME} by ${ARTISTS}`;
+                  if (i < DATA.length - 1) {
+                    message += ", ";
+                  } else {
+                    message += ".";
+                  }
+                }
+                sendChatMessage(message);
+              } catch (err) {
+                console.log(err);
+              }
+              break;
+
+            case "!skip":
+              try {
+                await axios.get(`${SPOTIFY_ENDPOINT}/skip`);
+                sendChatMessage("Song Skipped");
+              } catch (err) {}
+          }
         } else {
-          exec_command_with_query(chat_command[0], chat_command[1]);
+          switch (chatCommand[0]) {
+            case "!songrequest":
+              try {
+                const REQUEST = await fetch(
+                  `${SPOTIFY_ENDPOINT}/search?` +
+                    new URLSearchParams({
+                      q: chatCommand[1],
+                    }).toString(),
+                );
+                const DATA = await REQUEST.json();
+                const SONG_NAME = DATA.song_name;
+                const ARTISTS = DATA.artists.toString().replace(/,/g, ", ");
+                sendChatMessage(
+                  `Added ${SONG_NAME} by ${ARTISTS} to the queue.`,
+                );
+              } catch (err) {
+                console.log(err);
+              }
+              break;
+          }
         }
       }
     }
   });
-  return websocket_client;
 }
 
-async function exec_command(command) {
-  switch (command) {
-    case "!song":
-      try {
-        const REQUEST = await axios.get(`${SPOTIFY_ENDPOINT}/playing`);
-        if (REQUEST.status === 204) {
-          send_chat_message("No song is currently playing");
-          break;
-        }
-        const DATA = REQUEST.data;
-        const SONG_NAME = DATA.song_name;
-        const ARTISTS = DATA.artists.toString().replace(/,/g, ", ");
-        send_chat_message(`Now playing ${SONG_NAME} by ${ARTISTS}.`);
-      } catch (err) {
-        console.log(err);
-      }
-      break;
-
-    case "!queue":
-      try {
-        const REQUEST = await axios.get(`${SPOTIFY_ENDPOINT}/queue`);
-        if (REQUEST.status === 204 || REQUEST.data.length === 0) {
-          send_chat_message("No songs are currently playing");
-          break;
-        }
-        const DATA = REQUEST.data;
-        let message = "";
-        for (let i = 0; i < DATA.length; ++i) {
-          const SONG_NAME = DATA[i].song_name;
-          const ARTISTS = DATA[i].artists.toString().replace(/,/g, ", ");
-          message += `${i + 1}. ${SONG_NAME} by ${ARTISTS}`;
-          if (i < DATA.length - 1) {
-            message += ", ";
-          } else {
-            message += ".";
-          }
-        }
-        send_chat_message(message);
-      } catch (err) {
-        console.log(err);
-      }
-      break;
-
-    case "!skip":
-      try {
-        await axios.get(`${SPOTIFY_ENDPOINT}/skip`);
-        send_chat_message("Song Skipped");
-      } catch (err) {}
-  }
-}
-
-async function exec_command_with_query(command, query) {
-  switch (command) {
-    case "!songrequest":
-      try {
-        const REQUEST = await fetch(
-          `${SPOTIFY_ENDPOINT}/search?` +
-            new URLSearchParams({
-              q: query,
-            }).toString(),
-        );
-        const DATA = await REQUEST.json();
-        const SONG_NAME = DATA.song_name;
-        const ARTISTS = DATA.artists.toString().replace(/,/g, ", ");
-        send_chat_message(`Added ${SONG_NAME} by ${ARTISTS} to the queue.`);
-      } catch (err) {
-        console.log(err);
-      }
-      break;
-  }
-}
-
-async function register_event_sub_listeners(WEBSOCKET_SESSION_ID) {
-  console.log("Registering Event Sub Listeners");
-  const HEADERS = {
-    Authorization: "Bearer " + AUTH_TOKEN,
+async function sendChatMessage(chatMessage) { const HEADERS = {
+    Authorization: "Bearer " + authToken,
     "Client-Id": CLIENT_ID,
     "Content-Type": "application/json",
   };
   const BODY = {
-    type: "channel.chat.message",
-    version: "1",
-    condition: {
-      broadcaster_user_id: CHAT_CHANNEL_USER_ID,
-      user_id: BOT_USER_ID,
-    },
-    transport: {
-      method: "websocket",
-      session_id: WEBSOCKET_SESSION_ID,
-    },
+    broadcaster_id: CHAT_CHANNEL_USER_ID,
+    sender_id: BOT_USER_ID,
+    message: chatMessage,
   };
 
-  try {
-    let response = await axios.post(
-      "https://api.twitch.tv/helix/eventsub/subscriptions",
-      BODY,
-      { headers: HEADERS },
-    );
-    var response_status = response.data.status;
-  } catch (err) {
-    if (err.code === "ERR_BAD_REQUEST") {
-      const TWITCH_REFRESH_ENDPOINT = "https://id.twitch.tv/oauth2/token";
-      const PARAMS = {
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        grant_type: "refresh_token",
-        refresh_token: REFRESH_TOKEN,
-      };
+  let response = await axios.post(
+    "https://api.twitch.tv/helix/chat/messages",
+    BODY,
+    { headers: HEADERS },
+  );
 
-      try {
-        const RESULT = await axios.post(TWITCH_REFRESH_ENDPOINT, PARAMS);
-        const DATA = RESULT.data;
-
-        if (!DATA.hasOwnProperty("access_token")) {
-          return res
-            .end(JSON.stringify({ error: `Error Fetching Auth Token` }))
-            .status(401);
-        }
-
-        AUTH_TOKEN = DATA.access_token;
-
-        if (DATA.hasOwnProperty("refresh_token")) {
-          REFRESH_TOKEN = DATA.refresh_token;
-        }
-
-        const TOKENS = JSON.stringify({
-          auth_token: AUTH_TOKEN,
-          refresh_token: REFRESH_TOKEN,
-        });
-
-        await fs.writeFile("tokens.json", TOKENS, { encoding: "utf8" });
-        setTimeout(() => {
-          websocket_client();
-        }, 1000 * 10);
-      } catch (err) {
-        return res
-          .end(JSON.stringify({ error: `Server Error: ${err}` }))
-          .status(503);
-      }
-    } else if (response_status != 202) {
-      console.error(
-        "Failed to subscribe to channel.chat.message. API call returned status code " +
-          response.status,
-      );
-    } else {
-      console.log(`Subscribed to channel.chat.message`);
-    }
-  }
-
-  async function send_chat_message(chat_message) {
-    const HEADERS = {
-      Authorization: "Bearer " + AUTH_TOKEN,
-      "Client-Id": CLIENT_ID,
-      "Content-Type": "application/json",
-    };
-    const BODY = {
-      broadcaster_id: CHAT_CHANNEL_USER_ID,
-      sender_id: BOT_USER_ID,
-      message: chat_message,
-    };
-
-    let response = await axios.post(
-      "https://api.twitch.tv/helix/chat/messages",
-      BODY,
-      { headers: HEADERS },
-    );
-
-    if (response.status != 200) {
-      let data = await response.json();
-      console.error("Failed to send chat message");
-      console.error(data);
-    } else {
-      console.log("Sent chat message: " + chat_message);
-    }
+  if (response.status != 200) {
+    let data = await response.json();
+    console.error("Failed to send chat message");
+    console.error(data);
+  } else {
+    console.log("Sent chat message: " + chatMessage);
   }
 }
-
-try {
-  websocket_client();
-} catch (err) {
-  console.log("Error Starting Twitch Bot");
-}
-
-APP.listen(PORT, () => {
-  console.log(`Listening on port: ${PORT}`);
-});
 
 // NOTE: maybe use later???
 
