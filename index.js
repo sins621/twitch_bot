@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import morgan from "morgan";
 import "dotenv/config";
 import WebSocket from "ws";
+import { URLSearchParams } from "node:url";
 
 // TODO: Error Handling
 // TODO: Validate Token on Startup and Refresh if Necessary
@@ -36,34 +37,19 @@ try {
   }
 }
 
-function encodeParams(params) {
-  let encodedString = "";
-  let i = 0;
-  Object.entries(params).forEach(([key, value]) => {
-    if (i === Object.keys(params).length - 1) {
-      encodedString += `${key}=${encodeURIComponent(value)}`;
-    } else {
-      encodedString += `${key}=${encodeURIComponent(value)}&`;
-    }
-    i++;
-  });
-
-  return encodedString;
-}
-
 APP.use(morgan("tiny"));
 
 APP.get(`${ENDPOINT}/authenticate`, async (_req, res) => {
   const TWITCH_CODE_ENDPOINT = "https://id.twitch.tv/oauth2/authorize";
-  const PARAMS = {
+  const PARAMS = new URLSearchParams({
     response_type: "code",
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URL,
     scope: SCOPES,
     state: STATE,
-  };
+  }).toString();
 
-  const URL = `${TWITCH_CODE_ENDPOINT}?${encodeParams(PARAMS)}`;
+  const URL = `${TWITCH_CODE_ENDPOINT}?${PARAMS}`;
   return res.redirect(URL);
 });
 
