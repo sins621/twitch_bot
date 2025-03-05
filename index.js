@@ -1,6 +1,6 @@
 import "dotenv/config";
-import Postgres from "./postgres.js";
-import TwitchBot from "./twitchbot.js";
+import Postgres from "./classes/postgres.js";
+import TwitchBot from "./classes/twitchbot.js";
 
 
 const postgres = new Postgres(
