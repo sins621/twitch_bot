@@ -1,5 +1,4 @@
 import pg from "pg";
-import "dotenv/config";
 
 export default class Postgres {
   constructor(user, host, database, password, port) {
@@ -30,15 +29,3 @@ export default class Postgres {
     }
   }
 }
-
-const postgres = new Postgres(
-  "postgres",
-  process.env.DB_HOST,
-  "twitch_bot",
-  process.env.DB_PASS,
-  5432,
-);
-
-// tests
-console.log(await postgres.fetchEnvironmentVariables());
-process.exit();
