@@ -18,7 +18,7 @@
 
 ### TwitchBot
 
-- [ ] Handle Refresh Error
+- [x] Handle Refresh Error
 - [x] Refresh Token
 - [x] Create Socket
   - [ ] Handle Websocket Timeout
