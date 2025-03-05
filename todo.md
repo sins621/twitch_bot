@@ -1,8 +1,8 @@
 # To-do
 ## All
 
-- [ ] Start Bot
-- [ ] Authorize Token
+- [x] Start Bot
+- [x] Authorize Token
 - [ ] Attempt Refresh if Token Out
       of Date
 - [ ] Start Auth Server if Refresh
