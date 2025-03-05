@@ -1,7 +1,8 @@
 import fs from "node:fs/promises";
+
 try {
   const TOKENS = JSON.parse(
-    await fs.readFile("tokens.json", { encoding: "utf8" })
+    await fs.readFile("tokens.json", { encoding: "utf8" }),
   );
   var authToken = TOKENS.auth_token;
   var refreshToken = TOKENS.refresh_token;
@@ -30,18 +31,26 @@ class TwitchBot {
       });
 
       const DATA = await RESPONSE.json();
-      const MESSAGE = await DATA.message;
+      const MESSAGE = DATA.message;
+      console.log(MESSAGE);
 
       if (MESSAGE === "missing authorization token") {
         throw Error("Missing Authorization Token");
       }
 
       if (RESPONSE.status !== 200) {
-        throw Error("Error Validating Token");
+        throw Error(`Error Validating Token: ${this.toTitleCase(MESSAGE)}`);
       }
     } catch (err) {
       console.log(err);
     }
+  }
+
+  toTitleCase(str) {
+    if (!str) {
+      return "";
+    }
+    return str.toLowerCase().replace(/\b\w/g, (s) => s.toUpperCase());
   }
 }
 
