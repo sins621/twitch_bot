@@ -13,7 +13,7 @@ export default class Postgres {
   }
 
   async fetchEnvironmentVariables() {
-    console.log("Fetching Environment Variables");
+    console.log("Fetching environment variables.");
     try {
       const QUERY = await this.db.query(`
         SELECT * FROM public.env_vars
@@ -27,6 +27,27 @@ export default class Postgres {
       return ENVIRONMENT_VARIABLES;
     } catch (err) {
       throw new Error(`Failed to fetch environment variables: ${err.message}`);
+    }
+  }
+
+  async updateTokens(authToken, refreshToken) {
+    console.log("Updating tokens on the database.");
+    try {
+      await this.db.query(
+        `
+         UPDATE public.env_vars
+         SET key = CASE 
+             WHEN name = 'AUTH_TOKEN' THEN $1
+             WHEN name = 'REFRESH_TOKEN' THEN $2
+             ELSE key
+         END
+         WHERE name IN ('AUTH_TOKEN', 'REFRESH_TOKEN');
+      `,
+        [authToken, refreshToken]
+      );
+      console.log("Tokens updated.");
+    } catch (err) {
+      throw new Error(`Failed to update tokens: ${err.message}`);
     }
   }
 }

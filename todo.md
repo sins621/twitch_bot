@@ -3,23 +3,23 @@
 
 - [x] Start Bot
 - [x] Authorize Token
-- [ ] Attempt Refresh if Token Out
+- [x] Attempt Refresh if Token Out
       of Date
-- [ ] Start Auth Server if Refresh
+- [x] Start Auth Server if Refresh
       Fails
-- [ ] Restart Bot When Recieve New
+- [x] Restart Bot When Recieve New
       Token
 
 ### Postgres
 
 - [x] Return Environment Variables 
 - [x] Add Tokens
-- [ ] Update Tokens in DB on Refresh
+- [x] Update Tokens in DB on Refresh
 
 ### TwitchBot
 
 - [ ] Handle Refresh Error
-- [ ] Refresh Token
+- [x] Refresh Token
 - [x] Create Socket
   - [ ] Handle Websocket Timeout
 - [x] Register to Chat
@@ -32,6 +32,6 @@
 
 ### TokenGenerator
 
-- [ ] Start /api/authenticate
-- [ ] Wait for /api/auth_redirect
-- [ ] Signal Bot to Restart Somehow
+- [x] Start /api/authenticate
+- [x] Wait for /api/auth_redirect
+- [x] Signal Bot to Restart Somehow

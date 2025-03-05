@@ -2,32 +2,32 @@ import WebSocket from "ws";
 
 const EVENTSUB_WEBSOCKET_URL = "wss://eventsub.wss.twitch.tv/ws";
 const SPOTIFY_ENDPOINT = "https://www.sins621.com/api/spotify";
+const TWITCH_REFRESH_ENDPOINT = "https://id.twitch.tv/oauth2/token";
+const TWITCH_TOKEN_ENDPOINT = "https://id.twitch.tv/oauth2/validate";
+const TWITCH_SUB_EVENT_ENDPOINT =
+  "https://api.twitch.tv/helix/eventsub/subscriptions";
 
 export default class TwitchBot {
-  constructor(authToken, refreshToken, clientID, botUserID, channelUserID) {
+  constructor(
+    authToken,
+    refreshToken,
+    clientID,
+    clientSecret,
+    botUserID,
+    channelUserID
+  ) {
     this.authToken = authToken;
     this.refreshToken = refreshToken;
     this.websocketClient = null;
     this.clientID = clientID;
+    this.clientSecret = clientSecret;
     this.botUserID = botUserID;
     this.channelUserID = channelUserID;
   }
 
-  async start() {
-    try {
-      await this.validateToken();
-      this.initializeWebsocket();
-    } catch (err) {
-      if (err.message === "Invalid Access Token") {
-        // Start TokenGenerator
-        process.exit();
-      }
-    }
-  }
-
   async validateToken() {
-    console.log("Validating Token");
-    const RESPONSE = await fetch("https://id.twitch.tv/oauth2/validate", {
+    console.log("Validating token.");
+    const RESPONSE = await fetch(TWITCH_TOKEN_ENDPOINT, {
       method: "GET",
       headers: {
         Authorization: "OAuth " + this.authToken,
@@ -35,11 +35,10 @@ export default class TwitchBot {
     });
 
     const DATA = await RESPONSE.json();
-    if (RESPONSE.status !== 200) {
+    if (RESPONSE.status !== 200)
       throw new Error(this.toTitleCase(DATA.message));
-    }
 
-    console.log("Token Validated");
+    console.log("Token validated.");
   }
 
   toTitleCase(str) {
@@ -50,12 +49,12 @@ export default class TwitchBot {
   }
 
   initializeWebsocket() {
-    console.log("Attempting Websocket Connection");
+    console.log("Attempting websocket connection.");
     this.websocketClient = new WebSocket(EVENTSUB_WEBSOCKET_URL);
     this.websocketClient.on("error", console.error);
-    this.websocketClient.on("open", () => console.log("WebSocket connected."));
+    this.websocketClient.on("open", () => console.log("Websocket connected."));
     this.websocketClient.on("message", (data) =>
-      this.handleWebSocketMessage(data),
+      this.handleWebSocketMessage(data)
     );
   }
 
@@ -70,7 +69,7 @@ export default class TwitchBot {
   }
 
   async registerEventSub(sessionID) {
-    console.log("Attempting to Subscribe to Chat");
+    console.log("Attempting to subscribe to chat.");
     const HEADERS = {
       Authorization: `Bearer ${this.authToken}`,
       "Client-Id": this.clientID,
@@ -88,20 +87,19 @@ export default class TwitchBot {
         session_id: sessionID,
       },
     });
-    const RESPONSE = await fetch(
-      "https://api.twitch.tv/helix/eventsub/subscriptions",
-      {
-        method: "POST",
-        headers: HEADERS,
-        body: BODY,
-      },
-    );
+    const RESPONSE = await fetch(TWITCH_SUB_EVENT_ENDPOINT, {
+      method: "POST",
+      headers: HEADERS,
+      body: BODY,
+    });
     const DATA = await RESPONSE.json();
     if (DATA.error)
       throw new Error(
-        `Error subscribing to Twitch chat, Twitch error: ${this.toTitleCase(DATA.message)}`,
+        `Error subscribing to Twitch chat, Twitch error: ${this.toTitleCase(
+          DATA.message
+        )}`
       );
-    console.log("Successfully Subscribed to Twitch Chat");
+    console.log("Successfully subscribed to twitch chat.");
   }
 
   async handleChatMessage(socketData) {
@@ -145,7 +143,7 @@ export default class TwitchBot {
 
       const data = await response.json();
       this.sendChatMessage(
-        `Now playing ${data.song_name} by ${data.artists.join(", ")}.`,
+        `Now playing ${data.song_name} by ${data.artists.join(", ")}.`
       );
     } catch (err) {
       console.error(err);
@@ -163,7 +161,7 @@ export default class TwitchBot {
         data
           .map(
             (song, index) =>
-              `${index + 1}. ${song.song_name} by ${song.artists.join(", ")}`,
+              `${index + 1}. ${song.song_name} by ${song.artists.join(", ")}`
           )
           .join(", ") + ".";
       this.sendChatMessage(message);
@@ -184,11 +182,11 @@ export default class TwitchBot {
   async requestSong(query) {
     try {
       const response = await fetch(
-        `${SPOTIFY_ENDPOINT}/search?` + new URLSearchParams({ q: query }),
+        `${SPOTIFY_ENDPOINT}/search?` + new URLSearchParams({ q: query })
       );
       const data = await response.json();
       this.sendChatMessage(
-        `Added ${data.song_name} by ${data.artists.join(", ")} to the queue.`,
+        `Added ${data.song_name} by ${data.artists.join(", ")} to the queue.`
       );
     } catch (err) {
       console.error(err);
@@ -216,5 +214,28 @@ export default class TwitchBot {
     } catch (err) {
       console.error("Failed to send chat message", err);
     }
+  }
+
+  async revalidateToken() {
+    console.log("Re-validating token.");
+    const PARAMS = new URLSearchParams({
+      client_id: this.clientID,
+      client_secret: this.clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: this.refreshToken,
+    });
+
+    const response = await fetch(TWITCH_REFRESH_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: PARAMS,
+    });
+
+    const DATA = await response.json();
+    if (!DATA.access_token) throw new Error(this.toTitleCase(DATA.message));
+
+    this.authToken = DATA.access_token;
+    this.refreshToken = DATA.refresh_token;
+    console.log("Token re-validated.");
   }
 }
