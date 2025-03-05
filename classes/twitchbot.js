@@ -101,6 +101,7 @@ export default class TwitchBot {
       throw new Error(
         `Error subscribing to Twitch chat, Twitch error: ${this.toTitleCase(DATA.message)}`,
       );
+    console.log("Successfully Subscribed to Twitch Chat");
   }
 
   async handleChatMessage(socketData) {
