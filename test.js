@@ -1,5 +1,5 @@
-import TwitchBot from "./twitch_bot.js";
+let foo = "this is a word"
 
-const twitchBot = new TwitchBot();
+const [command, ...args] = foo.split(" ");
 
-twitchBot.run();
+console.log(args.join(" "));

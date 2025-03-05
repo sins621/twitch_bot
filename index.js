@@ -24,7 +24,7 @@ const SPOTIFY_ENDPOINT = "https://www.sins621.com/api/spotify";
 
 try {
   const TOKENS = JSON.parse(
-    await fs.readFile("tokens.json", { encoding: "utf8" }),
+    await fs.readFile("tokens.json", { encoding: "utf8" })
   );
   var authToken = TOKENS.auth_token;
   var refreshToken = TOKENS.refresh_token;
@@ -113,7 +113,7 @@ APP.get(`${ENDPOINT}/auth_redirect`, async (req, res) => {
 });
 
 APP.listen(PORT, () => {
-  console.log(`Listening on port: ${PORT}`);
+  console.log(`Listening on port: http://localhost:${PORT}`);
 });
 
 try {
@@ -159,7 +159,7 @@ try {
   } else if (response.status != 200) {
     console.log(
       "Token is not valid. /oauth2/validate returned status code " +
-        response.status,
+        response.status
     );
   }
 
@@ -203,14 +203,14 @@ try {
         let response = await axios.post(
           "https://api.twitch.tv/helix/eventsub/subscriptions",
           BODY,
-          { headers: HEADERS },
+          { headers: HEADERS }
         );
         var responseStatus = response.data.status;
       } catch (err) {
         if (responseStatus != 202) {
           console.error(
             "Failed to subscribe to channel.chat.message. API call returned status code " +
-              response.status,
+              responseStatus
           );
         } else {
           console.log(`Subscribed to channel.chat.message`);
@@ -288,13 +288,13 @@ try {
                   `${SPOTIFY_ENDPOINT}/search?` +
                     new URLSearchParams({
                       q: chatCommand[1],
-                    }).toString(),
+                    }).toString()
                 );
                 const DATA = await REQUEST.json();
                 const SONG_NAME = DATA.song_name;
                 const ARTISTS = DATA.artists.toString().replace(/,/g, ", ");
                 sendChatMessage(
-                  `Added ${SONG_NAME} by ${ARTISTS} to the queue.`,
+                  `Added ${SONG_NAME} by ${ARTISTS} to the queue.`
                 );
               } catch (err) {
                 console.log(err);
@@ -322,7 +322,7 @@ async function sendChatMessage(chatMessage) {
   let response = await axios.post(
     "https://api.twitch.tv/helix/chat/messages",
     BODY,
-    { headers: HEADERS },
+    { headers: HEADERS }
   );
 
   if (response.status != 200) {
@@ -334,6 +334,21 @@ async function sendChatMessage(chatMessage) {
   }
 }
 
+class TwitchBot {
+  constructor(authToken, refreshToken) {
+    this.authToken = authToken;
+    this.refreshToken = refreshToken;
+  }
+
+  async validateToken() {
+    let response = await fetch("https://id.twitch.tv/oauth2/validate", {
+      method: "GET",
+      headers: {
+        Authorization: "OAuth " + authToken,
+      },
+    });
+  }
+}
 
 // NOTE: maybe use later???
 
