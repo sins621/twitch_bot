@@ -20,11 +20,18 @@
 
 - [ ] Handle Refresh Error
 - [ ] Refresh Token
-- [ ] Create Socket
-- [ ] Register to Chat
-- [ ] Handle Messages
+- [x] Create Socket
+  - [ ] Handle Websocket Timeout
+- [x] Register to Chat
+- [x] Handle Messages
+  - [x] Handle Command
+  - [x] Split Command and Arg
+  - [x] Switch on Command
+  - [x] Make Spotify API Calls
 - [ ] Handle Connection Loss
 
 ### TokenGenerator
 
-- [ ]
+- [ ] Start /api/authenticate
+- [ ] Wait for /api/auth_redirect
+- [ ] Signal Bot to Restart Somehow

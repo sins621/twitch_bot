@@ -33,20 +33,8 @@ const BOT_USER_ID = "960074192";
 const CHAT_CHANNEL_USER_ID = "61362118";
 const SPOTIFY_ENDPOINT = "https://www.sins621.com/api/spotify";
 
-try {
-  const TOKENS = JSON.parse(
-    await fs.readFile("tokens.json", { encoding: "utf8" }),
-  );
-  var authToken = TOKENS.auth_token;
-  var refreshToken = TOKENS.refresh_token;
-} catch (err) {
-  if (err.code !== "ENOENT") {
-    throw err;
-  } else {
-    var authToken = null;
-    var refreshToken = null;
-  }
-}
+var authToken = ENV.AUTH_TOKEN;
+var refreshToken = ENV.REFRESH_TOKEN;
 
 function encodeParams(params) {
   let encodedString = "";
@@ -115,7 +103,7 @@ app.get(`${ENDPOINT}/auth_redirect`, async (req, res) => {
     await fs.writeFile("tokens.json", TOKENS, { encoding: "utf8" });
   } catch (err) {
     return res
-      .end(JSON.stringify({ error: `Server Error: ${err}` }))
+      .end(JSON.stringify({ error: `Sugma Error: ${err}` }))
       .status(503);
   }
   return res
@@ -165,7 +153,7 @@ try {
 
       await fs.writeFile("tokens.json", TOKENS, { encoding: "utf8" });
     } catch (err) {
-      console.log(`Server Error: ${err}`);
+      console.log(`sugma Error: ${err}`);
     }
   } else if (response.status != 200) {
     console.log(
@@ -209,6 +197,8 @@ try {
           session_id: WEBSOCKET_SESSION_ID,
         },
       };
+      console.log(HEADERS);
+      console.log(BODY);
 
       try {
         let response = await axios.post(
@@ -344,38 +334,3 @@ async function sendChatMessage(chatMessage) {
     console.log("Sent chat message: " + chatMessage);
   }
 }
-
-class TwitchBot {
-  constructor(authToken, refreshToken) {
-    this.authToken = authToken;
-    this.refreshToken = refreshToken;
-  }
-
-  async validateToken() {
-    let response = await fetch("https://id.twitch.tv/oauth2/validate", {
-      method: "GET",
-      headers: {
-        Authorization: "OAuth " + authToken,
-      },
-    });
-  }
-}
-
-// NOTE: maybe use later???
-
-//let response = await fetch("https://id.twitch.tv/oauth2/validate", {
-//  method: "GET",
-//  headers: {
-//    Authorization: "OAuth " + AUTH_TOKEN,
-//  },
-//});
-//
-//if (response.status != 200) {
-//  throw new Error(
-//    "Token is not valid. /oauth2/validate returned status code " +
-//      response.status,
-//  );
-//}
-//
-//console.log(response);
-//console.log("Validated token.");

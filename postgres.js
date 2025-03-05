@@ -13,6 +13,7 @@ export default class Postgres {
   }
 
   async fetchEnvironmentVariables() {
+    console.log("Fetching Environment Variables");
     try {
       const QUERY = await this.db.query(`
         SELECT * FROM public.env_vars
