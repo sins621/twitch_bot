@@ -7,6 +7,8 @@ const TWITCH_TOKEN_ENDPOINT = "https://id.twitch.tv/oauth2/validate";
 const TWITCH_SUB_EVENT_ENDPOINT =
   "https://api.twitch.tv/helix/eventsub/subscriptions";
 
+const INACTIVITY_TIMEOUT = 1000 * 20;
+
 export default class TwitchBot {
   constructor(
     authToken,
@@ -23,6 +25,22 @@ export default class TwitchBot {
     this.clientSecret = clientSecret;
     this.botUserID = botUserID;
     this.channelUserID = channelUserID;
+    this.lastPing = Date.now();
+    this.checkInactivity();
+  }
+
+  checkInactivity() {
+    setInterval(() => {
+      this.inactivityChecker();
+    }, INACTIVITY_TIMEOUT);
+  }
+
+  inactivityChecker() {
+    let currentTime = Date.now();
+    if (currentTime - this.lastPing > INACTIVITY_TIMEOUT) {
+      console.log("Connection timed out, restarting websocket");
+      this.initializeWebsocket();
+    }
   }
 
   async validateToken() {
@@ -49,6 +67,9 @@ export default class TwitchBot {
   }
 
   initializeWebsocket() {
+    if (this.websocketClient) {
+      this.websocketClient.close();
+    }
     console.log("Attempting websocket connection.");
     this.websocketClient = new WebSocket(EVENTSUB_WEBSOCKET_URL);
     this.websocketClient.on("error", console.error);
@@ -65,6 +86,9 @@ export default class TwitchBot {
       await this.registerEventSub(socketData.payload.session.id);
     } else if (messageType === "notification") {
       this.handleChatMessage(socketData);
+    }
+    if (messageType === "session_keepalive") {
+      this.lastPing = Date.now();
     }
   }
 
