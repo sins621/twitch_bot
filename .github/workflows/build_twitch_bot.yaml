@@ -38,6 +38,7 @@ jobs:
             docker pull sins621/twitch_bot:latest
             docker run -d -p 7817:7817 \
               --name twitch_bot \
+              --network my_network \
               -e NODE_ENV=production \
               -e DB_HOST=${{ secrets.DB_HOST }} \
               -e DB_PASS=${{ secrets.DB_PASS }} \
