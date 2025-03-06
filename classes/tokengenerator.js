@@ -11,7 +11,6 @@ export default class TokenGenerator {
     this.state = state;
     this.port = 7817;
     this.app = express();
-    this.setupRoutes();
   }
 
   setupRoutes() {
