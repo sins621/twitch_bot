@@ -7,4 +7,4 @@ RUN npm install --omit=dev
 COPY . .
 EXPOSE 7817
 
-CMD ["node", "server.js"]
+CMD ["node", "index.js"]
