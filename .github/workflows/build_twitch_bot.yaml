@@ -1,0 +1,44 @@
+name: Deploy Node App
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build . -t sins621/twitch_bot:latest
+
+      - name: Push image to Docker Hub
+        run: |
+          docker login -u sins621 -p ${{ secrets.DOCKER_HUB_TOKEN }}
+          docker push sins621/twitch_bot:latest
+
+      - name: Pull and run image on remote
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+          port: ${{ secrets.PORT }}
+          script: |
+            cd twitch_bot
+            docker stop twitch_bot || true
+            docker rm twitch_bot || true
+            docker pull sins621/twitch_bot:latest
+            docker run -d -p 7817:7817 \
+              --name twitch_bot \
+              -e NODE_ENV=production \
+              -e DB_HOST={{ secrets.DB_HOST }} \ 
+              -e DB_PASS={{ secrets.DB_PASS }} \ 
+              sins621/twitch_bot:latest
