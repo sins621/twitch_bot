@@ -1,7 +1,7 @@
 import WebSocket from "ws";
 
 const EVENTSUB_WEBSOCKET_URL = "wss://eventsub.wss.twitch.tv/ws";
-const SPOTIFY_ENDPOINT = "http://spotify_container:8080/api/spotify";
+const SPOTIFY_ENDPOINT = "http://localhost:8000/api/spotify";
 const TWITCH_REFRESH_ENDPOINT = "https://id.twitch.tv/oauth2/token";
 const TWITCH_TOKEN_ENDPOINT = "https://id.twitch.tv/oauth2/validate";
 const TWITCH_SUB_EVENT_ENDPOINT =
