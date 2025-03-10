@@ -9,7 +9,7 @@ export default class TokenGenerator {
     this.redirectURL = redirectURL;
     this.scopes = scopes;
     this.state = state;
-    this.port = 7817;
+    this.port = 5003;
     this.app = express();
   }
 
