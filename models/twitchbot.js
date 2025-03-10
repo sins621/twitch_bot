@@ -156,6 +156,8 @@ export default class TwitchBot {
       case "!songrequest":
         await this.requestSong(args);
         break;
+      case "!commands":
+        await this.sendChatMessage(`The commands are: !song !queue !skip !songrequest`);
     }
   }
 
