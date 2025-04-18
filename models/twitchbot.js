@@ -72,7 +72,9 @@ export default class TwitchBot {
     }
     console.log("Attempting websocket connection.");
     this.websocketClient = new WebSocket(EVENTSUB_WEBSOCKET_URL);
-    this.websocketClient.on("error", console.error);
+    this.websocketClient.on("error", (err) =>
+      console.error(`Error starting websocket client: ${err}`)
+    );
     this.websocketClient.on("open", () => console.log("Websocket connected."));
     this.websocketClient.on("message", (data) =>
       this.handleWebSocketMessage(data)
@@ -156,8 +158,20 @@ export default class TwitchBot {
       case "!songrequest":
         await this.requestSong(args);
         break;
+      case "!game":
+        await this.sendChatMessage(
+          "try out pong at https://www.sins621.com/game/pong"
+        );
+        break;
       case "!commands":
-        await this.sendChatMessage(`The commands are: !song !queue !skip !songrequest`);
+        await this.sendChatMessage(
+          `The commands are:
+!song - show the song that is currently playing on Spotify.
+!queue - show the next 5 songs.
+!skip - skip the current song.
+!songrequest - request a new song e.g. 'the days by notion'. (i will skip if it doesn't fit the current vibe)
+!game - get a link to a web game I made.`
+        );
     }
   }
 
@@ -172,7 +186,7 @@ export default class TwitchBot {
         `Now playing ${data.song_name} by ${data.artists.join(", ")}.`
       );
     } catch (err) {
-      console.error(err);
+      console.error(`Error attempting to get the current song: ${err}`);
     }
   }
 
@@ -192,7 +206,7 @@ export default class TwitchBot {
           .join(", ") + ".";
       this.sendChatMessage(message);
     } catch (err) {
-      console.error(err);
+      console.error(`Error attempting to get the song queue: ${err}`);
     }
   }
 
@@ -201,7 +215,7 @@ export default class TwitchBot {
       await fetch(`${SPOTIFY_ENDPOINT}/skip`);
       this.sendChatMessage("Song skipped");
     } catch (err) {
-      console.error(err);
+      console.error(`Error attempting to skip the current song: ${err}`);
     }
   }
 
@@ -215,7 +229,7 @@ export default class TwitchBot {
         `Added ${data.song_name} by ${data.artists.join(", ")} to the queue.`
       );
     } catch (err) {
-      console.error(err);
+      console.error(`Error attempting to process a song request: ${err}`);
     }
   }
 
@@ -231,12 +245,17 @@ export default class TwitchBot {
         sender_id: this.botUserID,
         message: chatMessage,
       });
-      await fetch("https://api.twitch.tv/helix/chat/messages", {
+      const RESULT = await fetch("https://api.twitch.tv/helix/chat/messages", {
         method: "POST",
         headers: HEADERS,
         body: BODY,
       });
-      console.log("Sent chat message: ", chatMessage);
+
+      if (RESULT.ok) {
+        console.log("Sent chat message: ", chatMessage);
+      } else {
+        console.log(`Failed to send chat message, ${await RESULT.json()}`);
+      }
     } catch (err) {
       console.error("Failed to send chat message", err);
     }

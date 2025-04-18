@@ -35,6 +35,7 @@ async function start() {
       console.error("Unexpected error:", err);
       process.exit();
     }
+    console.log(`Other websocket error: ${err}`)
   }
 
   try {
