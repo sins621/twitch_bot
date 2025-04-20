@@ -26,17 +26,17 @@ const twitchBot = new TwitchBot(
 );
 
 async function start() {
-  // try {
+  try {
   await twitchBot.validateToken();
   twitchBot.initializeWebsocket();
   return;
-  // } catch (err) {
-  //   if (err.message !== "Invalid Access Token") {
-  //     console.error("Unexpected error:", err);
-  //     process.exit();
-  //   }
-  //   console.log(`Other websocket error: ${err}`)
-  // }
+  } catch (err) {
+    // if (err.message !== "Invalid Access Token") {
+    //   console.error("Unexpected error:", err);
+    //   process.exit();
+    // }
+    console.log(`Other websocket error: ${err}`)
+  }
 
   try {
     await revalidateAndRestart();
