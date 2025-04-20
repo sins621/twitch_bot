@@ -8,7 +8,7 @@ const postgres = new Postgres(
   process.env.DB_HOST,
   "twitch_bot",
   process.env.DB_PASS,
-  5432,
+  5432
 );
 
 const ENV = await postgres.fetchEnvironmentVariables();
@@ -22,21 +22,21 @@ const twitchBot = new TwitchBot(
   ENV.CLIENT_ID,
   ENV.CLIENT_SECRET,
   BOT_USER_ID,
-  CHANNEL_USER_ID,
+  CHANNEL_USER_ID
 );
 
 async function start() {
-  try {
-    await twitchBot.validateToken();
-    twitchBot.initializeWebsocket();
-    return;
-  } catch (err) {
-    if (err.message !== "Invalid Access Token") {
-      console.error("Unexpected error:", err);
-      process.exit();
-    }
-    console.log(`Other websocket error: ${err}`)
-  }
+  // try {
+  await twitchBot.validateToken();
+  twitchBot.initializeWebsocket();
+  return;
+  // } catch (err) {
+  //   if (err.message !== "Invalid Access Token") {
+  //     console.error("Unexpected error:", err);
+  //     process.exit();
+  //   }
+  //   console.log(`Other websocket error: ${err}`)
+  // }
 
   try {
     await revalidateAndRestart();
@@ -59,7 +59,7 @@ async function handleRevalidationFailure() {
     ENV.CLIENT_SECRET,
     ENV.REDIRECT_URL,
     ENV.SCOPES,
-    ENV.STATE,
+    ENV.STATE
   );
 
   tokenGenerator.setupRoutes();
